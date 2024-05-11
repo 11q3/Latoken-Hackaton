@@ -2,22 +2,12 @@ import logging
 import os
 import telebot
 from dotenv import load_dotenv
-import openai
 from openai import OpenAI
-import requests.exceptions
-import time
 
-# Set up logging
 logging.basicConfig(level=logging.INFO)
 
-# Define constants
-HACKATHON_KEYWORDS = ['hackathon', 'latoken', 'deliver', 'about']
-MAX_RETRIES = 3
-RETRY_DELAY_SECONDS = 5
 
-# Load API credentials from environment variables
 def load_api_credentials():
-    print('load_api_credentials')
     load_dotenv()
     api_key = os.environ.get("OPENAI_API_KEY")
     bot_token = os.environ.get("BOT_TOKEN")
@@ -26,36 +16,26 @@ def load_api_credentials():
         logging.error("OPENAI_API_KEY or BOT_TOKEN not set in environment variables")
         raise SystemExit(1)
 
-    print('load_api_credentials exit')
     return api_key, bot_token
 
-# Create Telegram bot instance
+
 def create_telegram_bot(bot_token):
     try:
         bot = telebot.TeleBot(bot_token)
-        print('create_telegram_bot exit')
         return bot
     except Exception as e:
         logging.error(f"Error creating Telegram bot instance: {e}")
         raise SystemExit(1)
 
 
-# Handle incoming messages
 def handle_message(update, context):
-    print('handle_message')
     message = update.message.text
-    #if any(keyword in message.lower() for keyword in HACKATHON_KEYWORDS):
-        # Generate a prompt for GPT-4
     prompt = f'Answer the following question related to the hackathon: {message}'
-        # Call GPT-4 API to generate a response
     response = call_gpt4_api(prompt)
-        # Send response back to the user
     context.bot.send_message(chat_id=update.effective_chat.id, text=response)
-    print('handle_message exit')
 
-# Call GPT-4 API to generate a response
-def call_gpt4_api(prompt):
-    print('call_gpt4_api')
+
+def call_gpt4_api(prompt): 
     client = OpenAI(api_key=load_api_credentials()[0])
     try:
         response = client.completions.create(
@@ -69,21 +49,28 @@ def call_gpt4_api(prompt):
         logging.error(f"Error calling GPT-4 API: {e}")
         return "Sorry, I'm unable to answer that question."
 
-# Main function
-def main():
-    api_key, bot_token = load_api_credentials()
-    bot = create_telegram_bot(bot_token)
 
-    # Set up message handler
-    print('++++++++++++++++++++++++++++++++++++++++++++++++++++++')
-    @bot.message_handler(func=lambda message: True)
-    def handle_text_message(message):
-        print('------------------------------------------------------------------------------------------------------------------------------')
-        handle_message(message, bot)
-    print('------------------------------------------------------')
+api_key, bot_token = load_api_credentials()
 
-    # Start polling
-    bot.polling(timeout=1)
+bot = create_telegram_bot(bot_token)
+#client = OpenAI()
 
-if __name__ == "__main__":
-    main()
+
+#completion = client.chat.completions.create(
+#    model="gpt-3.5-turbo",
+#    messages=[
+#        {"role": "system", "content": "You are a poetic assistant, skilled in explaining complex programming concepts with creative flair."},
+#        {"role": "user", "content": "Compose a poem that explains the concept of recursion in programming."}
+#    ]
+#)
+
+#print(completion.choices[0].message)
+
+@bot.message_handler(func=lambda message: True)
+def echo_all(message):
+    print('answered')
+    bot.reply_to(message, message.text)
+
+
+bot.polling()
+
