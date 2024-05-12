@@ -35,7 +35,7 @@ def handle_message(update, context):
     context.bot.send_message(chat_id=update.effective_chat.id, text=response)
 
 
-def call_gpt4_api(prompt): 
+def call_gpt4_api(prompt):
     client = OpenAI(api_key=load_api_credentials()[0])
     try:
         response = client.completions.create(
@@ -50,27 +50,30 @@ def call_gpt4_api(prompt):
         return "Sorry, I'm unable to answer that question."
 
 
-api_key, bot_token = load_api_credentials()
+def main():
+    api_key, bot_token = load_api_credentials()
 
-bot = create_telegram_bot(bot_token)
-#client = OpenAI()
+    bot = create_telegram_bot(bot_token)
+
+    client = OpenAI()
+    completion = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "system",
+                   "content": "You are a poetic assistant, "
+                              "skilled in explaining complex programming concepts with creative flair."
+                   },
+                   {
+                      "role": "user",
+                      "content": "Compose a poem that explains the concept of recursion in programming."}])
+    print(completion.choices[0].message)
+
+    @bot.message_handler(func=lambda message: True)
+    def echo_all(message):
+        print('answered')
+        bot.reply_to(message, message.text)
 
 
-#completion = client.chat.completions.create(
-#    model="gpt-3.5-turbo",
-#    messages=[
-#        {"role": "system", "content": "You are a poetic assistant, skilled in explaining complex programming concepts with creative flair."},
-#        {"role": "user", "content": "Compose a poem that explains the concept of recursion in programming."}
-#    ]
-#)
+    bot.polling()
 
-#print(completion.choices[0].message)
-
-@bot.message_handler(func=lambda message: True)
-def echo_all(message):
-    print('answered')
-    bot.reply_to(message, message.text)
-
-
-bot.polling()
-
+if __name__ == "__main__":
+    main()
