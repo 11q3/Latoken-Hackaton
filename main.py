@@ -9,6 +9,7 @@ logging.basicConfig(level=logging.INFO)
 
 def load_api_credentials():
     load_dotenv()
+
     api_key = os.environ.get("OPENAI_API_KEY")
     bot_token = os.environ.get("BOT_TOKEN")
 
@@ -28,21 +29,20 @@ def create_telegram_bot(bot_token):
         raise SystemExit(1)
 
 
-def handle_message(update, context):
-    message = update.message.text
-    prompt = f'Answer the following question related to the hackathon: {message}'
-    response = call_gpt4_api(prompt)
-    context.bot.send_message(chat_id=update.effective_chat.id, text=response)
+#def handle_message(update, context):
+#    message = update.message.text
+#    prompt = f'Answer the following question related to the hackathon: {message}'
+#    response = call_gpt4_api(prompt)
+#    context.bot.send_message(chat_id=update.effective_chat.id, text=response)
 
 
 def call_gpt4_api(prompt):
     client = OpenAI(api_key=load_api_credentials()[0])
     try:
         response = client.completions.create(
+            model='gpt-3.5-turbo-instruct',
             prompt=prompt,
-            model='gpt-3.5-turbo-instruct'
         )
-        print('call_gpt4_api exit')
 
         return response.choices[0].text.strip()
     except Exception as e:
@@ -50,8 +50,14 @@ def call_gpt4_api(prompt):
         return "Sorry, I'm unable to answer that question."
 
 
+def load_gpt_model():
+    pass
+
+
 def main():
     api_key, bot_token = load_api_credentials()
+
+    load_gpt_model()
 
     bot = create_telegram_bot(bot_token)
 
@@ -62,18 +68,19 @@ def main():
                    "content": "You are a poetic assistant, "
                               "skilled in explaining complex programming concepts with creative flair."
                    },
-                   {
+                  {
                       "role": "user",
                       "content": "Compose a poem that explains the concept of recursion in programming."}])
     print(completion.choices[0].message)
 
-    @bot.message_handler(func=lambda message: True)
-    def echo_all(message):
-        print('answered')
-        bot.reply_to(message, message.text)
+    related_words = ['latoken', 'hackaton']
 
+    @bot.message_handler(func=lambda message: any(word.lower() in message.text.lower() for word in related_words))
+    def echo_hackaton_related(message):
+        bot.reply_to(message, call_gpt4_api(prompt=message.text))
 
     bot.polling()
+
 
 if __name__ == "__main__":
     main()
