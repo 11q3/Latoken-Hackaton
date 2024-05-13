@@ -8,7 +8,7 @@
 интеллекта и помогают стать стейкхолдерами будущего.
 
 
-Расписание Хакатона {
+Расписание Хакатона:
     Пятница:
     18:00 Презентация компании и обсуждение задачи.
 
@@ -20,13 +20,12 @@
     Ссылка на регистрацию: https://www.canva.com/link?target=http%3A%2F%2Ft.me%2Fgpt_web3_hackathon%2F5280&design=DAFmGtEKkWs&accessRole=viewer&linkSource=document
     Ссылка на тест знания хакатона: https://www.canva.com/link?target=https%3A%2F%2Fforms.gle%2F9SMAeGwCf6DdQwf4A&design=DAFmGtEKkWs&accessRole=viewer&linkSource=document
     Ссылка на информацию о компании Латокен: https://www.canva.com/link?target=https%3A%2F%2Fdeliver.latoken.com%2Fabout&design=DAFmGtEKkWs&accessRole=viewer&linkSource=document
-}
+
 
 РАБОТА В ЛАТОКЕН  -
 УНИКАЛЬНАЯ ВОЗМОЖНОСТЬ
 ДЛЯ "СПОРТСМЕНОВ"
 ВЛЮБЛЕННЫХ В ТЕХНОЛОГИИ
-
     Быстрый рост через решение нетривиальных задач
     Передовые технологии AIxWEB3
     Глобальный рынок, клиенты в 200+ странах
@@ -50,7 +49,7 @@
     Прикрывает коллег или сплетничает, вместо прямоты
 
 
-КАЖДЫЙ ОТВЕЧАЕТ ЗА ПОЛЬЗУ В ПРОДЕ  ДЛЯ КЛИЕНТОВ:
+КАЖДЫЙ ОТВЕЧАЕТ ЗА ПОЛЬЗУ В ПРОДЕ ДЛЯ КЛИЕНТОВ:
     ДА:
         Разберусь и сделаю, расписав проект, задачи, блокеры и репорты.
         Каждую неделю улучшаю продукт или процесс, тестирую.
