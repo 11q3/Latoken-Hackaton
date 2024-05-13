@@ -92,27 +92,16 @@ def main():
 
     data = load_training_data()
 
-    #vectorstore = create_embeddings(data)
+    vectorstore = create_embeddings(data)
 
-    embeddings = OpenAIEmbeddings()
-    vectorstore = PineconeVectorStore(
-        index_name=os.environ.get('PINECONE_INDEX_NAME'), embedding=embeddings
-    )
-
-    chat = ChatOpenAI(verbose=True, temperature=0, model_name="gpt-3.5-turbo")
+    chat = ChatOpenAI(verbose=True, temperature=0.5, model_name="gpt-3.5-turbo")
     qa = RetrievalQA.from_chain_type(
         llm=chat, chain_type="stuff", retriever=vectorstore.as_retriever(),
     )
 
-    res = qa.invoke("Что такое хакатон латокен?")
-    print(res)
+    bot = create_telegram_bot(telegram_bot_token)
 
-    res = qa.invoke("Какие есть за и против работы в латокен?")
-    print(res)
-
-    #bot = create_telegram_bot(telegram_bot_token)
-
-    #client = OpenAI()
+    client = OpenAI()
     #completion = client.chat.completions.create(
     #    model="gpt-3.5-turbo",
     #    messages=[{"role": "system",
@@ -123,16 +112,20 @@ def main():
     #                  "role": "user",
     #                  "content": "Compose a poem that explains the concept of recursion in programming."}])
     #print(completion.choices[0].message)
-    #
+
     #related_words = ['latoken', 'hackaton']
+    #@bot.message_handler(func=lambda message: any(word.lower() in message.text.lower() for word in related_words))
 
-    #    @bot.message_handler(func=lambda message: any(word.lower() in message.text.lower() for word in related_words))
+    @bot.message_handler(func=lambda message: True)
+    def echo_hackaton_related(message):
+        res = qa.invoke(message.text)
+        print(res)
+        if 'result' in res and res['result']:
+            bot.reply_to(message, res['result'])
+        else:
+            bot.reply_to(message, "Я не могу ответить на этот вопрос..")
 
-    #@bot.message_handler(func=lambda message: True)
-    #def echo_hackaton_related(message):
-    #    bot.reply_to(message, call_gpt4_api(prompt=message.text))
-
-    #bot.polling()
+    bot.polling()
 
 
 if __name__ == "__main__":
