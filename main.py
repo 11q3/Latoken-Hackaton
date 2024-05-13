@@ -1,8 +1,15 @@
 import logging
 import os
+import langchain_community
 import telebot
 from dotenv import load_dotenv
+from langchain.chains.retrieval_qa.base import RetrievalQA
+from langchain.text_splitter import CharacterTextSplitter
+from langchain_openai import OpenAIEmbeddings, ChatOpenAI
+from langchain_pinecone import PineconeVectorStore
 from openai import OpenAI
+
+from langchain.chains import RetrievalQA
 
 logging.basicConfig(level=logging.INFO)
 
@@ -10,14 +17,28 @@ logging.basicConfig(level=logging.INFO)
 def load_api_credentials():
     load_dotenv()
 
-    api_key = os.environ.get("OPENAI_API_KEY")
-    bot_token = os.environ.get("BOT_TOKEN")
+    openai_api_key = os.environ.get("OPENAI_API_KEY")
+    telegram_bot_token = os.environ.get("BOT_TOKEN")
+    pinecone_api_key = os.environ.get("PINECONE_API_KEY")
+    pinecone_index = os.environ.get("PINECONE_INDEX_NAME")
 
-    if not api_key or not bot_token:
-        logging.error("OPENAI_API_KEY or BOT_TOKEN not set in environment variables")
+    if not openai_api_key:
+        logging.error("OPENAI_API_KEY is not set in environment variables")
         raise SystemExit(1)
 
-    return api_key, bot_token
+    if not telegram_bot_token:
+        logging.error("TELEGRAM_BOT_TOKEN is not set in environment variables")
+        raise SystemExit(1)
+
+    if not pinecone_api_key:
+        logging.error("PINECONE_BOT_TOKEN is not set in environment variables")
+        raise SystemExit(1)
+
+    if not pinecone_index:
+        logging.error("PINECONE_INDEX is not set in environment variables")
+        raise SystemExit(1)
+
+    return openai_api_key, telegram_bot_token, pinecone_api_key, pinecone_index
 
 
 def create_telegram_bot(bot_token):
@@ -50,36 +71,68 @@ def call_gpt4_api(prompt):
         return "Sorry, I'm unable to answer that question."
 
 
-def load_gpt_model():
-    pass
+def load_training_data():
+    with open('training_data.txt', 'r') as file:
+        contents = file.read()
+
+    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+    texts = text_splitter.split_text(contents)
+
+    return texts
+
+
+def create_embeddings(texts):
+    embeddings = OpenAIEmbeddings()
+    vectorstore = PineconeVectorStore.from_texts(texts, embeddings, index_name=os.environ.get('PINECONE_INDEX_NAME'))
+    return vectorstore
 
 
 def main():
-    api_key, bot_token = load_api_credentials()
+    openai_api_key, telegram_bot_token, pinecone_api_key, pinecone_index = load_api_credentials()
 
-    load_gpt_model()
+    data = load_training_data()
 
-    bot = create_telegram_bot(bot_token)
+    #vectorstore = create_embeddings(data)
 
-    client = OpenAI()
-    completion = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "system",
-                   "content": "You are a poetic assistant, "
-                              "skilled in explaining complex programming concepts with creative flair."
-                   },
-                  {
-                      "role": "user",
-                      "content": "Compose a poem that explains the concept of recursion in programming."}])
-    print(completion.choices[0].message)
+    embeddings = OpenAIEmbeddings()
+    vectorstore = PineconeVectorStore(
+        index_name=os.environ.get('PINECONE_INDEX_NAME'), embedding=embeddings
+    )
 
-    related_words = ['latoken', 'hackaton']
+    chat = ChatOpenAI(verbose=True, temperature=0, model_name="gpt-3.5-turbo")
+    qa = RetrievalQA.from_chain_type(
+        llm=chat, chain_type="stuff", retriever=vectorstore.as_retriever(),
+    )
 
-    @bot.message_handler(func=lambda message: any(word.lower() in message.text.lower() for word in related_words))
-    def echo_hackaton_related(message):
-        bot.reply_to(message, call_gpt4_api(prompt=message.text))
+    res = qa.invoke("Что такое хакатон латокен?")
+    print(res)
 
-    bot.polling()
+    res = qa.invoke("Какие есть за и против работы в латокен?")
+    print(res)
+
+    #bot = create_telegram_bot(telegram_bot_token)
+
+    #client = OpenAI()
+    #completion = client.chat.completions.create(
+    #    model="gpt-3.5-turbo",
+    #    messages=[{"role": "system",
+    #               "content": "You are a poetic assistant, "
+    #                          "skilled in explaining complex programming concepts with creative flair."
+    #               },
+    #              {
+    #                  "role": "user",
+    #                  "content": "Compose a poem that explains the concept of recursion in programming."}])
+    #print(completion.choices[0].message)
+    #
+    #related_words = ['latoken', 'hackaton']
+
+    #    @bot.message_handler(func=lambda message: any(word.lower() in message.text.lower() for word in related_words))
+
+    #@bot.message_handler(func=lambda message: True)
+    #def echo_hackaton_related(message):
+    #    bot.reply_to(message, call_gpt4_api(prompt=message.text))
+
+    #bot.polling()
 
 
 if __name__ == "__main__":
