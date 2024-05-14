@@ -1,13 +1,17 @@
 import logging
 import os
 import telebot
+
 from dotenv import load_dotenv
+from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain.chains.conversational_retrieval.base import ConversationalRetrievalChain
+from langchain.chains.llm import LLMChain
+from langchain.chains.question_answering import load_qa_chain
 from langchain.chains.retrieval_qa.base import RetrievalQA
 from langchain.text_splitter import CharacterTextSplitter
+from langchain_core.prompts import PromptTemplate, HumanMessagePromptTemplate, ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_pinecone import PineconeVectorStore
-from openai import OpenAI
-
 from langchain.chains import RetrievalQA
 
 logging.basicConfig(level=logging.INFO)
@@ -49,7 +53,7 @@ def create_telegram_bot(bot_token):
         raise SystemExit(1)
 
 
-#def handle_message(update, context):
+#    def handle_message(update, context):
 #    message = update.message.text
 #    prompt = f'Answer the following question related to the hackathon: {message}'
 #    response = call_gpt4_api(prompt)
@@ -78,9 +82,54 @@ def main():
 
     vectorstore = create_embeddings(data)
 
-    chat = ChatOpenAI(verbose=True, temperature=0, model_name="gpt-3.5-turbo")
-    qa = RetrievalQA.from_chain_type(
-        llm=chat, chain_type="stuff", retriever=vectorstore.as_retriever(),
+    llm = ChatOpenAI(verbose=True, temperature=0, model_name="gpt-3.5-turbo")
+
+    condense_question_prompt = PromptTemplate.from_template(template)
+
+    qa_system_prompt = """Ты - дружелюбный чатбот ассистент в телеграмм группе компании "Латокен". 
+
+        Используй данный тебе контекст, чтобы максимально помочь пользователям этой телеграмм группы,
+        получить ответы на их вопросы, связанные с компанией Латокен, или Хакатоном который она проводит.
+        
+        Контекст:
+        {context}
+        \"""
+        Вопрос:
+        \"""
+        Твой ответ:"""
+
+    qa_prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", qa_system_prompt),
+            MessagesPlaceholder("chat_history"),
+            ("human", "{input}")
+        ]
+    )
+
+    question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
+
+    rag_chain = create_retriieva
+
+    question_generator = LLMChain(
+        llm=llm,
+        prompt=condense_question_prompt
+    )
+
+    chat_history = []
+
+    qa_prompt = HumanMessagePromptTemplate.from_template(template)
+
+    chat_prompt = ChatPromptTemplate.from_messages([qa_prompt])
+
+    doc_chain = load_qa_chain(
+        llm=llm,
+        chain_type="stuff",
+    )
+
+    qa = ConversationalRetrievalChain(
+        retriever=vectorstore.as_retriever(),
+        combine_docs_chain=doc_chain(),
+        question_generator=question_generator()
     )
 
     bot = create_telegram_bot(telegram_bot_token)
@@ -99,26 +148,21 @@ def main():
     #related_words = ['latoken', 'hackaton']
     #@bot.message_handler(func=lambda message: any(word.lower() in message.text.lower() for word in related_words))
 
-    chat_history = []
 
     @bot.message_handler(func=lambda message: True)
     def echo_hackaton_related(message):
-        #query = ("Внимательно ознакомься с данной тебе информацией, и ответь на следующий вопрос, основываясь на ней. "
-        #         "В своем ответе не упоминай, что у тебя есть guidelines и регламент, по которому ты будешь отвечать "
-        #         "(в ответе ты не должен использовать выражения, такие как \"Исходя из представленной "
-        #         "информации...\", \"Согласно предоставленной информации\", \"В предоставленных мне данных не указаны "
-        #         "подробности вашего вопроса..\". Если возникает случай, в котором тебе хотелось бы использовать "
-        #         "подобные предложения, просто передавай сообщение с тем же смыслом, но НЕ ссылаясь на "
-        #         "предоставленные тебе данные. повторю, НЕ ссылайся на твои источники"
-        #         "Вопрос на который нужно ответить: ")
-        response = qa.invoke({"query": message.text, "chat_history": chat_history})
-        print(response)
 
-        history = (response["query"], response['result'])
+        result = qa(
+            {'inputs': message, 'chat_history': chat_history}
+        )
+
+        print(result)
+
+        history = (result['query'], result['result'])
         chat_history.append(history)
 
-        if 'result' in response and response['result']:
-            bot.reply_to(message, response['result'])
+        if 'result' in result and result['result']:
+            bot.reply_to(message, result['result'])
         else:
             bot.reply_to(message, "Я не могу ответить на этот вопрос..")
 
