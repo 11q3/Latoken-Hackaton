@@ -7,12 +7,13 @@ from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.chains.conversational_retrieval.base import ConversationalRetrievalChain
 from langchain.chains.llm import LLMChain
 from langchain.chains.question_answering import load_qa_chain
+from langchain.chains.retrieval import create_retrieval_chain
 from langchain.chains.retrieval_qa.base import RetrievalQA
 from langchain.text_splitter import CharacterTextSplitter
 from langchain_core.prompts import PromptTemplate, HumanMessagePromptTemplate, ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_pinecone import PineconeVectorStore
-from langchain.chains import RetrievalQA
+from langchain.chains import RetrievalQA, history_aware_retriever
 
 logging.basicConfig(level=logging.INFO)
 
@@ -75,19 +76,8 @@ def create_embeddings(texts):
     return vectorstore
 
 
-def main():
-    openai_api_key, telegram_bot_token, pinecone_api_key, pinecone_index = load_api_credentials()
-
-    data = load_training_data()
-
-    vectorstore = create_embeddings(data)
-
-    llm = ChatOpenAI(verbose=True, temperature=0, model_name="gpt-3.5-turbo")
-
-    condense_question_prompt = PromptTemplate.from_template(template)
-
+def get_chain(vectorstore):
     qa_system_prompt = """Ты - дружелюбный чатбот ассистент в телеграмм группе компании "Латокен". 
-
         Используй данный тебе контекст, чтобы максимально помочь пользователям этой телеграмм группы,
         получить ответы на их вопросы, связанные с компанией Латокен, или Хакатоном который она проводит.
         
@@ -106,33 +96,44 @@ def main():
         ]
     )
 
-    question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
 
-    rag_chain = create_retriieva
+    condense_question_prompt = PromptTemplate.from_template(qa_system_prompt)
+
+    llm = ChatOpenAI(
+        verbose=True,
+        temperature=0,
+        model_name="gpt-3.5-turbo"
+    )
 
     question_generator = LLMChain(
         llm=llm,
         prompt=condense_question_prompt
     )
 
-    chat_history = []
-
-    qa_prompt = HumanMessagePromptTemplate.from_template(template)
-
-    chat_prompt = ChatPromptTemplate.from_messages([qa_prompt])
-
     doc_chain = load_qa_chain(
         llm=llm,
         chain_type="stuff",
+        prompt=qa_prompt
     )
 
-    qa = ConversationalRetrievalChain(
+    chain = ConversationalRetrievalChain(
         retriever=vectorstore.as_retriever(),
-        combine_docs_chain=doc_chain(),
-        question_generator=question_generator()
+        combine_docs_chain=doc_chain,
+        question_generator=question_generator
     )
+
+    return chain
+
+
+def main():
+    openai_api_key, telegram_bot_token, pinecone_api_key, pinecone_index = load_api_credentials()
+
+    data = load_training_data()
+    vectorstore = create_embeddings(data)
 
     bot = create_telegram_bot(telegram_bot_token)
+
+    chat_history = []
 
     #completion = client.chat.completions.create(
     #    model="gpt-3.5-turbo",
@@ -152,8 +153,11 @@ def main():
     @bot.message_handler(func=lambda message: True)
     def echo_hackaton_related(message):
 
-        result = qa(
-            {'inputs': message, 'chat_history': chat_history}
+        chain = get_chain(vectorstore=vectorstore)
+
+        result = chain(
+            {"question": message,
+             "chat_history": chat_history}
         )
 
         print(result)
