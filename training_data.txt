@@ -9,12 +9,14 @@
 
 Расписание Хакатона:
     Пятница:
-        18:00 Презентация компании и обсуждение задачи.
+        18:00 - Welcome Хакатон (https://latoken.info/)
+        18:10 - Презентация и разбор задачи: AI бот Телеграм группы (https://docs.google.com/document/d/1PpkDg6BxwxSh-8qFqyiczbODrFH3qLa2VU57x5c1Oq0/edit?usp=sharing)
+        18:30 - Переходим к решению + Свободный микрофон
 
     Суббота:
-        17:00 Чекпоинт.
-        18:00 Демо результатов,
-        19:00 Объявление победителей, интервью и офферы.
+        17:30 - Репетиция (проверка защиты)
+        18:00 - Презентация решений
+        19:30 - Награждение победителей и выдача офферов
 
 
 Ссылка на информацию о компании Латокен: https://www.canva.com/link?target=https%3A%2F%2Fdeliver.latoken.com%2Fabout&design=DAFmGtEKkWs&accessRole=viewer&linkSource=document

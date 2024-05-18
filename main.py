@@ -9,7 +9,6 @@ from langchain_core.runnables import RunnablePassthrough
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_pinecone import PineconeVectorStore
 
-
 logging.basicConfig(level=logging.INFO)
 
 
@@ -49,13 +48,15 @@ def create_telegram_bot(bot_token):
 
 
 def generate_rag_chain(retriever, llm):
-    prompt_template = """Ты являешься ассистентом на крипто-хакатоне компании Latoken.
-    Для начала, определи, относится ли последнее сообщение к компании латокен или хакатону,
-    если оно не относится, то отвечай этим символом: ⠀.
-    Если относится, тогда используй приведенные ниже фрагменты извлеченного контекста, чтобы ответить на вопрос.
-    Если ты не знаешь ответа, предоставь необходимую информацию о хакатоне.
-    Ты не должен упоминать наличие у себя контекста в своем ответе. 
-    Пользователь  не должен знать, что у тебя есть контекст.\n
+    prompt_template = """Ты - Света, ты являешься ассистентом на крипто-хакатоне компании Latoken.
+    Для начала, определи, относится ли последнее сообщение к компании хакатону, или смежной теме, компании Латокен и т.д
+    Если вопрос относится относится, тогда используй приведенные ниже фрагменты извлеченного контекста,
+    чтобы ответить на вопрос.
+    Если вопрос относится к хакатону, или Латокен, и ты не знаешь ответа, 
+    скажи что не уверен в ответе на вопрос, но вы можете обратиться к организаторам хакатона для получения информации.
+    Если вопрос не относится, тогда отвечай этим символом: ⠀.
+
+    \n
     Вопрос: {question} \n
     Контекст: {context}  \n
     Ответ: """
@@ -95,18 +96,15 @@ def setup_bot(openai_api_key, telegram_bot_token, pinecone_index):
 
     @bot.message_handler(func=lambda message: True)
     def echo_hackaton_related(message):
-        rag_chain = generate_rag_chain(retriever=vectorstore.as_retriever(search_type="similarity",
-                                                                          search_kwargs={"k": 3}),
+        rag_chain = generate_rag_chain(retriever=vectorstore.as_retriever(),
                                        llm=ChatOpenAI(model="gpt-3.5-turbo-0125", api_key=openai_api_key))
         response = rag_chain.invoke(message.text)
         print(response)
 
-        if " " != response and "⠀" != response:
+        if "⠀" != response:
             bot.reply_to(message, response)
-        elif response == "⠀":
-            print("empty a")
         else:
-            print("empty")
+            print("Not related to Hackaton or Latoken question. Ignoring..")
 
     return bot
 
@@ -114,7 +112,8 @@ def setup_bot(openai_api_key, telegram_bot_token, pinecone_index):
 def main():
     credentials = load_api_credentials()
     bot = setup_bot(*credentials)
-    bot.polling()
+
+    bot.infinity_polling()
 
 
 if __name__ == "__main__":
