@@ -1,8 +1,26 @@
 # LATOKEN Hackathon Telegram Bot
+## Description
+The bot is built using the Langchain library and the OpenAI API for language processing. 
+The bot is trained on a set of data (training_data.txt) that is loaded and processed using the Langchain text splitter. 
+The processed text is then embedded into vectors using the OpenAIEmbeddings module and 
+stored in a Pinecone vector database.
 
-This Telegram bot is designed to respond to questions related to the LATOKEN hackathon using AI. It utilizes the GPT-4 model from OpenAI to generate responses.
+The bot uses a Retrieval-Augmented Generation (RAG) chain to generate responses to user messages. 
+The RAG chain consists of a retriever, a language model, and a prompt template.
+The retriever retrieves relevant context from the vector database based on the user's message. 
+The language model generates a response using the retrieved context and the prompt template.
 
-## Instructions
+The bot is designed to handle messages related to the cryptohackathon or the company Latoken. 
+If the bot is unable to answer a question, it will inform the user that it is not sure of the answer but can refer the
+user to the organizers of the hackathon for more information.
+
+
+### Prerequisites
+- Python 3.8 or higher
+- OpenAI API key
+- Pinecone account and index
+- Telegram bot token
+- VPN, if you are trying to use a bot from a country that is not available for OpenAI
 
 ### Setting Up Environment
 
@@ -17,7 +35,7 @@ This Telegram bot is designed to respond to questions related to the LATOKEN hac
     source env/bin/activate  # On Linux/Mac
     env\Scripts\activate  # On Windows
     ```
-5. Install dependencies:
+5. Install the required packages:
     ```bash
     pip install -r requirements.txt
     ```
@@ -25,12 +43,24 @@ This Telegram bot is designed to respond to questions related to the LATOKEN hac
 ### Running the Bot
 
 1. Obtain a Telegram Bot Token from [@BotFather](https://t.me/BotFather) on Telegram.
-2. Replace `"YOUR_TELEGRAM_BOT_TOKEN"` in the script with your actual bot token.
-3. Set up your OpenAI API key and replace `"YOUR_OPENAI_API_KEY"` in the script.
+2. Obtain a Pinecone API key and create an index:
+   - Create an account at https://www.pinecone.io/
+   - Find your API key in your Pinecone Console
+   - Create a Pinecone Index (You can choose embedding model "text-embedding-ada-002"") for example.
+   - Remember the chosen name, you will need it later
+3. Update the variables in the .env file located at the project root directory with your credentials:
+   - Add your Telegram bot token after BOT_TOKEN=
+   - Add your OpenAI API key after OPENAI_API_KEY=
+   - Add your Pinecone API key after PINECONE_API_KEY=
+   - Add your Pinecone Index name after PINECONE_INDEX_NAME=
 4. Run the bot script:
     ```bash
-    python bot.py
+    python main.py
     ```
+
+The bot will start and wait for messages in the specified Telegram chat. 
+When a user sends a message, the bot will process the message, search the training data using Pinecone, and 
+generate a response using Langchain and OpenAI.
 
 ### Usage
 
