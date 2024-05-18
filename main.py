@@ -2,13 +2,13 @@ import logging
 import os
 import telebot
 from dotenv import load_dotenv
-from langchain.chains.retrieval_qa.base import RetrievalQA
 from langchain.text_splitter import CharacterTextSplitter
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnablePassthrough
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_pinecone import PineconeVectorStore
-from openai import OpenAI
 
-from langchain.chains import RetrievalQA
 
 logging.basicConfig(level=logging.INFO)
 
@@ -40,6 +40,10 @@ def load_api_credentials():
     return openai_api_key, telegram_bot_token, pinecone_api_key, pinecone_index
 
 
+def format_document_content(docs):
+    return "\n\n".join(doc.page_content for doc in docs)
+
+
 def create_telegram_bot(bot_token):
     try:
         bot = telebot.TeleBot(bot_token)
@@ -49,11 +53,27 @@ def create_telegram_bot(bot_token):
         raise SystemExit(1)
 
 
-#def handle_message(update, context):
-#    message = update.message.text
-#    prompt = f'Answer the following question related to the hackathon: {message}'
-#    response = call_gpt4_api(prompt)
-#    context.bot.send_message(chat_id=update.effective_chat.id, text=response)
+def generate_rag_chain(retriever, llm):
+    prompt_template = """Ты являешься ассистентом на крипто-хакатоне компании Latoken.
+    Используй приведенные ниже фрагменты извлеченного контекста, чтобы ответить на вопрос.
+    Если вы не знаете ответа, предоставьте необходимую информацию о хакатоне.
+    Ты не должен упоминать наличие у себя контекста в своем ответе. 
+    Пользователь  не должен знать, что у тебя есть контекст.\n
+    Вопрос: {question} \n
+    Контекст: {context}  \n
+    Ответ: """
+
+    prompt = ChatPromptTemplate.from_template(prompt_template)
+
+    rag_chain = (
+            {"context": retriever | format_document_content, "question": RunnablePassthrough()}
+            | prompt
+            | llm
+            | StrOutputParser()
+    )
+
+    return rag_chain
+
 
 def load_training_data():
     with open('training_data.txt', 'r') as file:
@@ -71,57 +91,26 @@ def create_embeddings(texts):
     return vectorstore
 
 
-def main():
+def setup_bot():
     openai_api_key, telegram_bot_token, pinecone_api_key, pinecone_index = load_api_credentials()
-
     data = load_training_data()
-
     vectorstore = create_embeddings(data)
-
-    chat = ChatOpenAI(verbose=True, temperature=0, model_name="gpt-3.5-turbo")
-    qa = RetrievalQA.from_chain_type(
-        llm=chat, chain_type="stuff", retriever=vectorstore.as_retriever(),
-    )
-
     bot = create_telegram_bot(telegram_bot_token)
-
-    #completion = client.chat.completions.create(
-    #    model="gpt-3.5-turbo",
-    #    messages=[{"role": "system",
-    #               "content": "You are a poetic assistant, "
-    #                          "skilled in explaining complex programming concepts with creative flair."
-    #               },
-    #              {
-    #                  "role": "user",
-    #                  "content": "Compose a poem that explains the concept of recursion in programming."}])
-    #print(completion.choices[0].message)
-
-    #related_words = ['latoken', 'hackaton']
-    #@bot.message_handler(func=lambda message: any(word.lower() in message.text.lower() for word in related_words))
-
-    chat_history = []
 
     @bot.message_handler(func=lambda message: True)
     def echo_hackaton_related(message):
-        #query = ("Внимательно ознакомься с данной тебе информацией, и ответь на следующий вопрос, основываясь на ней. "
-        #         "В своем ответе не упоминай, что у тебя есть guidelines и регламент, по которому ты будешь отвечать "
-        #         "(в ответе ты не должен использовать выражения, такие как \"Исходя из представленной "
-        #         "информации...\", \"Согласно предоставленной информации\", \"В предоставленных мне данных не указаны "
-        #         "подробности вашего вопроса..\". Если возникает случай, в котором тебе хотелось бы использовать "
-        #         "подобные предложения, просто передавай сообщение с тем же смыслом, но НЕ ссылаясь на "
-        #         "предоставленные тебе данные. повторю, НЕ ссылайся на твои источники"
-        #         "Вопрос на который нужно ответить: ")
-        response = qa.invoke({"query": message.text, "chat_history": chat_history})
+        rag_chain = generate_rag_chain(retriever=vectorstore.as_retriever(search_type="similarity",
+                                                                          search_kwargs={"k": 3}),
+                                       llm=ChatOpenAI(model="gpt-3.5-turbo-0125", api_key=openai_api_key))
+        response = rag_chain.invoke(message.text)
         print(response)
+        bot.reply_to(message, response)
 
-        history = (response["query"], response['result'])
-        chat_history.append(history)
+    return bot
 
-        if 'result' in response and response['result']:
-            bot.reply_to(message, response['result'])
-        else:
-            bot.reply_to(message, "Я не могу ответить на этот вопрос..")
 
+def main():
+    bot = setup_bot()
     bot.polling()
 
 
