@@ -1,6 +1,7 @@
 import logging
 import os
 import telebot
+
 from dotenv import load_dotenv
 from langchain.text_splitter import CharacterTextSplitter
 from langchain_core.output_parsers import StrOutputParser
@@ -46,7 +47,6 @@ def create_telegram_bot(bot_token):
         logging.error(f"Error creating Telegram bot instance: {e}")
         raise SystemExit(1)
 
-
 def generate_rag_chain(retriever, llm):
     prompt_template = """Ты - Света, ты являешься ассистентом на крипто-хакатоне компании Latoken.
     Для начала, определи, относится ли последнее сообщение к компании хакатону, или смежной теме, компании Латокен и т.д
@@ -72,7 +72,6 @@ def generate_rag_chain(retriever, llm):
 
     return rag_chain
 
-
 def load_training_data():
     with open('training_data.txt', 'r') as file:
         contents = file.read()
@@ -87,7 +86,6 @@ def create_embeddings(texts, pinecone_index_name):
     embeddings = OpenAIEmbeddings()
     vectorstore = PineconeVectorStore.from_texts(texts, embeddings, index_name=pinecone_index_name)
     return vectorstore
-
 
 def setup_bot(openai_api_key, telegram_bot_token, pinecone_index):
     data = load_training_data()
