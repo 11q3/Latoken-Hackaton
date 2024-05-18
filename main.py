@@ -18,7 +18,6 @@ def load_api_credentials():
 
     openai_api_key = os.environ.get("OPENAI_API_KEY")
     telegram_bot_token = os.environ.get("BOT_TOKEN")
-    pinecone_api_key = os.environ.get("PINECONE_API_KEY")
     pinecone_index = os.environ.get("PINECONE_INDEX_NAME")
 
     if not openai_api_key:
@@ -29,15 +28,11 @@ def load_api_credentials():
         logging.error("TELEGRAM_BOT_TOKEN is not set in environment variables")
         raise SystemExit(1)
 
-    if not pinecone_api_key:
-        logging.error("PINECONE_BOT_TOKEN is not set in environment variables")
-        raise SystemExit(1)
-
     if not pinecone_index:
         logging.error("PINECONE_INDEX is not set in environment variables")
         raise SystemExit(1)
 
-    return openai_api_key, telegram_bot_token, pinecone_api_key, pinecone_index
+    return openai_api_key, telegram_bot_token, pinecone_index
 
 
 def format_document_content(docs):
@@ -55,8 +50,10 @@ def create_telegram_bot(bot_token):
 
 def generate_rag_chain(retriever, llm):
     prompt_template = """Ты являешься ассистентом на крипто-хакатоне компании Latoken.
-    Используй приведенные ниже фрагменты извлеченного контекста, чтобы ответить на вопрос.
-    Если вы не знаете ответа, предоставьте необходимую информацию о хакатоне.
+    Для начала, определи, относится ли последнее сообщение к компании латокен или хакатону,
+    если оно не относится, то отвечай этим символом: ⠀.
+    Если относится, тогда используй приведенные ниже фрагменты извлеченного контекста, чтобы ответить на вопрос.
+    Если ты не знаешь ответа, предоставь необходимую информацию о хакатоне.
     Ты не должен упоминать наличие у себя контекста в своем ответе. 
     Пользователь  не должен знать, что у тебя есть контекст.\n
     Вопрос: {question} \n
@@ -85,16 +82,15 @@ def load_training_data():
     return texts
 
 
-def create_embeddings(texts):
+def create_embeddings(texts, pinecone_index_name):
     embeddings = OpenAIEmbeddings()
-    vectorstore = PineconeVectorStore.from_texts(texts, embeddings, index_name=os.environ.get('PINECONE_INDEX_NAME'))
+    vectorstore = PineconeVectorStore.from_texts(texts, embeddings, index_name=pinecone_index_name)
     return vectorstore
 
 
-def setup_bot():
-    openai_api_key, telegram_bot_token, pinecone_api_key, pinecone_index = load_api_credentials()
+def setup_bot(openai_api_key, telegram_bot_token, pinecone_index):
     data = load_training_data()
-    vectorstore = create_embeddings(data)
+    vectorstore = create_embeddings(data, pinecone_index)
     bot = create_telegram_bot(telegram_bot_token)
 
     @bot.message_handler(func=lambda message: True)
@@ -104,13 +100,20 @@ def setup_bot():
                                        llm=ChatOpenAI(model="gpt-3.5-turbo-0125", api_key=openai_api_key))
         response = rag_chain.invoke(message.text)
         print(response)
-        bot.reply_to(message, response)
+
+        if " " != response and "⠀" != response:
+            bot.reply_to(message, response)
+        elif response == "⠀":
+            print("empty a")
+        else:
+            print("empty")
 
     return bot
 
 
 def main():
-    bot = setup_bot()
+    credentials = load_api_credentials()
+    bot = setup_bot(*credentials)
     bot.polling()
 
 
